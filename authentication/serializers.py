@@ -25,6 +25,9 @@ class LoginSerializer(serializers.Serializer):
     username = serializers.CharField()
     password = serializers.CharField()
 
+    class Meta:
+        model = Token
+        fields = ['token']
 
 class UpdateSerializer(serializers.ModelSerializer):
     class Meta:
@@ -43,5 +46,29 @@ class ProfileSerialzier(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         instance.profile_picture = validated_data['profile_picture']
+        instance.save()
+        return instance
+    
+
+class ChangePasswordSerializer(serializers.Serializer):
+    password = serializers.CharField(required=True)
+    # token = serializers.CharField(required=True)
+
+    class Meta:
+        model = User
+        fields = ['password']
+
+    def update(self, instance, validated_data):
+        instance.set_password(validated_data['password'])
+        instance.save()
+        return instance
+    
+class VerifyEmailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Profile
+        fields = ['email_verification_token']
+
+    def update(self, instance, validated_data):
+        instance.is_verified = True
         instance.save()
         return instance
