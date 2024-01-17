@@ -2,6 +2,8 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from rest_framework.authtoken.models import Token
 from .models import Profile
+from django.contrib.auth import authenticate
+
 class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -25,9 +27,24 @@ class LoginSerializer(serializers.Serializer):
     username = serializers.CharField()
     password = serializers.CharField()
 
-    class Meta:
-        model = Token
-        fields = ['token']
+    def validate(self, data):
+        username = data.get('username')
+        password = data.get('password')
+  
+        if username and password:
+            user = authenticate(username = username, password = password)
+            if not user:
+                raise serializers.ValidationError({'msg': 'check your username or password and try again'})
+
+        
+        profile = Profile.objects.get(user = user)
+        if not profile.is_verified:
+            raise serializers.ValidationError({'msg': 'activate your account'})
+        
+        token, _= Token.objects.get_or_create(user= user.id)
+        data['token'] = token.key
+        data['id'] = user.id
+        return data
 
 class UpdateSerializer(serializers.ModelSerializer):
     class Meta:
