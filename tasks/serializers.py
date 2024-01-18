@@ -21,3 +21,12 @@ class TaskSerializer(serializers.ModelSerializer):
         )
         return task
     
+    def update(self, instance, validated_data):
+        if self.context['user'] == instance.user:
+            instance.title = validated_data['title']
+            instance.description = validated_data['description']
+            instance.due = validated_data['due']
+            instance.isCompleted = validated_data['isCompleted']
+            instance.save()
+            return instance
+        raise serializers.ValidationError({"msg": "You do not have the right to edit the data"})

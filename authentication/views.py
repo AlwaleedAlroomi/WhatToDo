@@ -18,8 +18,9 @@ def register(request):
     serializer = serializers.RegisterSerializer(data = request.data)
     if serializer.is_valid():
         user = serializer.save()
-        token = Token.objects.get(user = user)
-        return Response({'data':serializer.data, 'msg': 'check your inbox to activate your account', 'token': token.key})
+        data = serializer.data
+        data['token'] = Token.objects.get(user = user).key
+        return Response({'data':data, 'msg': 'check your inbox to activate your account'})
     return Response({'data': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -83,17 +84,13 @@ def forgetPassword(request):
 def changePassword(request):
     user = User.objects.get(email = request.data['email'])
     profile = Profile.objects.filter(user = user).first()
-    new_password = request.POST.get('password')
-    new_password_confirm = request.POST.get('password2')
-    if profile.reset_password_token == request.POST.get('token'):
-        if new_password == new_password_confirm:
-            serializer = serializers.ChangePasswordSerializer(user, request.data, partial=True)
-            if serializer.is_valid():
-                serializer.save()
-                return Response({'data': serializer.data, 'msg': 'your password changed'})
-            return Response({'data': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
-        return Response({'data': 'password are not the same'}, status=status.HTTP_400_BAD_REQUEST)
-    return Response({'msg':'Check your token and try again later'}, status=status.HTTP_400_BAD_REQUEST)
+    if request.POST.get('password') == request.POST.get('password2'):
+        serializer = serializers.ChangePasswordSerializer(user, request.data, context={'user_token': profile.reset_password_token})
+        if serializer.is_valid():
+            serializer.save()
+            return Response({'data': serializer.data, 'msg': 'your password changed'})
+        return Response({'data': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+    return Response({'data': 'password are not the same'}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['PUT'])
@@ -102,14 +99,11 @@ def verifyEmail(request, id):
     user = User.objects.get(id = id)
     profile = Profile.objects.filter(user = user).first()
     if request.auth.user == user:
-        token = request.POST.get('token')
-        if token == profile.email_verification_token:
-            serializer = serializers.VerifyEmailSerializer(profile, data=request.data, partial=True)
-            if serializer.is_valid():
-                serializer.save()
-                return Response({"data": serializer.data, 'msg': 'your account activated'})
-            return Response({'msg': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
-        return Response({'data': 'tokens are not the same'}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = serializers.VerifyEmailSerializer(profile, data=request.data, partial=True, context={'user_token':profile.email_verification_token})
+        if serializer.is_valid():
+            serializer.save()
+            return Response({'msg': 'your account activated'})
+        return Response({'msg': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
     return Response({'msg': 'You do not have the rights to change the data'}, status=status.HTTP_403_FORBIDDEN)
     
         

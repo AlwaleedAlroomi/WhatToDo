@@ -143,10 +143,12 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ]
 }
-
+from environs import Env
+env = Env()
+env.read_env()
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_USE_TLS = True
 EMAIL_PORT = 587
-EMAIL_HOST_USER = 'your email'
-EMAIL_HOST_PASSWORD = 'app password from google account/security'
+EMAIL_HOST_USER = env('email')
+EMAIL_HOST_PASSWORD = env('app_password')

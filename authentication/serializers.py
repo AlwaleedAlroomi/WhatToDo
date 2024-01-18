@@ -8,9 +8,13 @@ class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['email', 'username', 'password', 'id']
+        extra_kwargs = {
+            'id':{'read_only':True},
+            'password':{'write_only':True}
+        }
 
     def validate(self, data):
-        if User.objects.filter(email=data['email']).exists():
+        if User.objects.filter(email=data['email']).exists() or User.objects.filter(username=data['username']).exists():
             raise serializers.ValidationError("Email is already exists")
         return data
 
@@ -42,6 +46,7 @@ class LoginSerializer(serializers.Serializer):
             raise serializers.ValidationError({'msg': 'activate your account'})
         
         token, _= Token.objects.get_or_create(user= user.id)
+        del data['password']
         data['token'] = token.key
         data['id'] = user.id
         return data
@@ -51,6 +56,11 @@ class UpdateSerializer(serializers.ModelSerializer):
         model = User
         fields = ['username']
 
+    def validate(self, data):
+        if User.objects.filter(username=data['username']).exists():
+            raise serializers.ValidationError("Username is already exists")
+        return data
+    
     def update(self, instance, validated_data):
         instance.username = validated_data['username']
         instance.save()
@@ -61,6 +71,7 @@ class ProfileSerialzier(serializers.ModelSerializer):
         model = Profile
         fields = ['profile_picture']
 
+    
     def update(self, instance, validated_data):
         instance.profile_picture = validated_data['profile_picture']
         instance.save()
@@ -69,22 +80,27 @@ class ProfileSerialzier(serializers.ModelSerializer):
 
 class ChangePasswordSerializer(serializers.Serializer):
     password = serializers.CharField(required=True)
-    # token = serializers.CharField(required=True)
+    token = serializers.CharField(write_only=True)
 
-    class Meta:
-        model = User
-        fields = ['password']
+    def validate(self, data):
+        if self.context['user_token'] != data['token']:
+            raise serializers.ValidationError("Check the token and try again")
+        return data
+    
 
     def update(self, instance, validated_data):
         instance.set_password(validated_data['password'])
         instance.save()
         return instance
     
-class VerifyEmailSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Profile
-        fields = ['email_verification_token']
+class VerifyEmailSerializer(serializers.Serializer):
+    token = serializers.CharField(write_only=True)
 
+    def validate(self, data):
+        if self.context['user_token'] != data['token']:
+            raise serializers.ValidationError("Check the token and try again")
+        return data
+    
     def update(self, instance, validated_data):
         instance.is_verified = True
         instance.save()
